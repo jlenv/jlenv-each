@@ -1,7 +1,7 @@
 sudo: false
-language: ruby
+language: c
 script:
   # Fail if any of these files have warnings
-  - shellcheck etc/jlenv.d/exec/jlenv-each.bash
-  - shellcheck libexec/jlenv-each
+  - shellcheck etc/jlenv.d/exec/*
+  # - shellcheck libexec/*
   - test/run

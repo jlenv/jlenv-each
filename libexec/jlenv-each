@@ -2,44 +2,79 @@
 #
 # Summary: Execute a command for each Julia version
 #
-# Usage: jlenv each [-v] <command> [arg1 arg2...]
+# Usage: jlenv each [--noop|--verbose|--quiet|--version|--help] <command> [arg1 arg2...]
 #
 # Executes a command for each Julia version by setting JLENV_VERSION.
 # Failures are collected and reported at the end.
 #
-#    -v  Verbose mode. Prints a header for each Julia.
+# --verbose Verbose mode. Prints a header for each Julia.
+# --quite   Quite mode. Prints no output.
+# --noop    Print would-be command only. Command is not executed.
 #
 # For more information on jlenv-each, see:
 # https://github.com/jlenv/jlenv-each#readme
 
 set -e
-[ -n "$JLENV_DEBUG" ] && set -x
-
-# Provide jlenv completions
-case "$1" in
-  --complete )
-    echo --help
-    echo --verbose
-    exit
+case ${JLENV_DEBUG:-1} in
+  0) # Enable tracing
+    set -x
     ;;
-  -v | --verbose )
-    verbose=1
-    shift
+  1) # Disable tracing
+    set +x
     ;;
-  --help )
-    jlenv-help each
-    exit
-    ;;
-  ""  | -* )
-    jlenv-help --usage each >&2
-    exit 1
+  *) # Disable tracing
+    set +x
     ;;
 esac
 
-if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
-  echo "jlenv-each 1.0.0"
-  exit
+# Called with no arguments.  Workaround until scripts are refactored.
+if [ -z "$1" ]
+then
+  jlenv-help --usage each >&2
+  exit 1
 fi
+
+# Parse command line flags
+# Provide jlenv completions
+for arg; do
+  case "$arg" in
+    --complete )
+      echo --help | help
+      echo --noop
+      echo --quiet
+      echo --verbose
+      echo --version
+      exit
+      ;;
+    -n | --noop ) 
+      noop=true
+      quiet=false
+      shift
+      ;;
+    -v | --verbose )
+      verbose=true
+      quiet=false
+      shift
+      ;;
+    --version )
+      echo "v1.0.0"
+      exit
+      ;;
+    -q | --quiet ) 
+      quiet=true 
+      verbose=false
+      shift
+      ;;
+    --help | help )
+      exec jlenv-help each
+      exit
+      ;;
+    ""  | -* )
+      jlenv-help --usage each >&2
+      exit 1
+      ;;
+  esac
+done
 
 GRAY=""
 RED=""
@@ -47,18 +82,29 @@ YELLOW=""
 NORMAL=""
 
 if [ -t 1 ]; then
-  GRAY="\033[1;30m"
+  GREEN="\033[1;30m"
   RED="\033[0;31m"
   YELLOW="\033[0;33m"
   NORMAL='\033[0m'
 fi
 
-falied_julies=''
+# Helper functions.
+indent_output() {
+  while read -r data; do
+    printf " ${GREEN}|${NORMAL}  %s\n" "$data"
+  done
+}
+
+failed_julias=''
 
 trap "exit 1" INT
 
+#####################################################################
+# Main script
+#####################################################################
+
 for julia in $(jlenv versions --bare --skip-aliases); do
-  if [ -n "$verbose" ]; then
+  if [ "$verbose" == "true" ]; then
     header="===[$julia]==================================================================="
     header="${header:0:72}"
     header="${header/[/[${YELLOW}}"
@@ -66,12 +112,51 @@ for julia in $(jlenv versions --bare --skip-aliases); do
     echo -e "${GRAY}${header}${NORMAL}"
   fi
 
-  JLENV_VERSION="$julia" "$@" || falied_julies="$falied_julies $julia"
+  if [ "$noop" = "true" ]; then
+    # print would-be command
+    JLENV_VERSION="$julia" echo "$@" | indent_output
+    if [ $? -ne 0 ]  ; then
+      failed_julias="$failed_julias $julia"
+      echo "$failed_julias" 2>&1 >/dev/null | indent_output
+    fi
+  elif [ "$quiet" = "true" ]; then
+    # mute stdout and stderr
+    JLENV_VERSION="$julia" command "$@" 2>&1 >/dev/null
+    if [ $? -ne 0 ]  ; then
+      failed_julias="$failed_julias $julia"
+    fi
+  elif [ "$verbose" = "true" ]; then
+    # indent stdout and stderr
+    JLENV_VERSION="$julia" command "$@" 2>&1 | indent_output
+    if [ $? -ne 0 ]  ; then
+      failed_julias="$failed_julias $julia"
+      echo "$failed_julias $julia" 2>&1 | indent_output
+    fi
+  else
+    # mute stdout, indent stderr
+    JLENV_VERSION="$julia" command "$@" | indent_output
+    if [ $? -ne 0 ]  ; then
+      failed_julias="$failed_julias $julia" 
+      echo "$failed_julias $julia" | indent_output
+    fi
+  fi
 
-  [ -n "$verbose" ] && echo
+  [ "$verbose" = "true" ] && echo
 done
 
-if [ -n "$falied_julies" ]; then
-  echo -e "${RED}FAILED IN:${falied_julies}${NORMAL}"
+if [ -n "$failed_julias" ]; then
+  if [ "$noop" = "true" ]; then
+    # print would-be command
+    echo -e "${RED}FAILED IN:${failed_julias}${NORMAL}" | indent_output
+  elif [ "$quiet" = "true" ]; then
+    # mute stdout and stderr
+    echo -e "${RED}FAILED IN:${failed_julias}${NORMAL}" &>/dev/null
+  elif [ "$verbose" = "true" ]; then
+    # indent stdout and stderr
+    echo -e "${RED}FAILED IN:${failed_julias}${NORMAL}" 2>&1 | indent_output
+  else
+    # mute stdout, indent stderr
+    echo -e "${RED}FAILED IN:${failed_julias}${NORMAL}" 2>&1 >/dev/null | indent_output
+  fi
   exit 1
 fi

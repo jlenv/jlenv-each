@@ -1,19 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ -d test/libs/bats ]; then
-  ( 
-    echo "Updating bats:"
-    git submodule update --recursive --remote
-    cd test/libs/bats
-    ./install.sh ./
-  )
+  echo "Previosly setup by run"
 else
-  git submodule add https://github.com/bats-core/bats-core.git test/libs/bats
-  git submodule add https://github.com/jasonkarns/bats-assert-1 test/libs/bats-assert
-  git submodule add https://github.com/jasonkarns/bats-support test/libs/bats-support
-  git submodule add https://github.com/ztombol/bats-file test/libs/bats-file
-  git submodule update --init --recursive
-  git commit -m 'Add bats-support library'
-  cd test/libs/bats
-  ./install.sh ./
+  # Use --force to override the gitignore for test libs.
+  git submodule add --force https://github.com/bats-core/bats-core.git test/libs/bats
+  git submodule add --force https://github.com/jasonkarns/bats-assert-1 test/libs/bats-assert
+  git submodule add --force https://github.com/jasonkarns/bats-support test/libs/bats-support
+  git submodule add --force https://github.com/ztombol/bats-file test/libs/bats-file
+  git submodule add --force https://github.com/jasonkarns/bats-mock test/libs/bats-mock
+
+  git submodule update --init --recursive --force
+
 fi

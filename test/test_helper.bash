@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+case ${JLENV_DEBUG:-1} in
+  0) # Enable tracing
+    set -x
+    ;;
+  1) # Disable tracing
+    set +x
+    ;;
+  *) # Disable tracing
+    set +x
+    ;;
+esac
+
 # Load the semver utility code
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source ${DIR}/test_semver.bash
@@ -16,8 +28,11 @@ if [ "${JLENV_ROOT:=/}" != "${JLENV_TEST_DIR}/root" ]; then
   export JLENV_ROOT="${JLENV_TEST_DIR}/root"
   export HOME="${JLENV_TEST_DIR}/home"
 
-  #export INSTALL_HOOK="${BATS_TEST_DIRNAME}/../etc/jlenv.d/install/autoalias.bash"
-  #export UNINSTALL_HOOK="${BATS_TEST_DIRNAME}/../etc/jlenv.d/uninstall/autoalias.bash"
+  # Install bats to the test location.  This is next added to path.
+  # These files are in .gitignore
+  pushd ${BATS_TEST_DIRNAME}/libs/bats
+    ./install.sh ${BATS_TEST_DIRNAME}/libexec
+  popd
 
   PATH=/usr/bin:/bin:/usr/sbin:/sbin
   PATH="${JLENV_TEST_DIR}/bin:$PATH"
@@ -81,7 +96,7 @@ create_versions() {
 #endif
 EOF
     ln -nfs /bin/echo "$d/bin/julia"
-    echo "Created version: $d"
+    echo "Created fake Julia version: $d"
   done
 }
 

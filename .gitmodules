@@ -13,3 +13,6 @@
 [submodule "test/libs/bats-file"]
 	path = test/libs/bats-file
 	url = https://github.com/ztombol/bats-file
+[submodule "test/libs/bats-mock"]
+	path = test/libs/bats-mock
+	url = https://github.com/jasonkarns/bats-mock
